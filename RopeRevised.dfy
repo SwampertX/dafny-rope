@@ -27,18 +27,22 @@ module Rope {
                 right.Repr < Repr && this !in right.Repr &&
                 right.Valid()) &&
             (left == null && right == null ==>
+                Repr == {this} &&
                 Contents == data &&
                 weight == |data| &&
                 data != "") &&
             (left != null && right == null ==>
+                Repr == {this} + left.Repr &&
                 Contents == left.Contents &&
                 weight == |left.Contents| &&
                 data == "") &&
             (left == null && right != null ==>
+                Repr == {this} + right.Repr &&
                 Contents == right.Contents &&
                 weight == 0 &&
                 data == "") &&
             (left != null && right != null ==>
+                Repr == {this} + left.Repr + right.Repr &&
                 left.Repr !! right.Repr &&
                 Contents == left.Contents + right.Contents &&
                 weight == |left.Contents| &&
@@ -74,17 +78,52 @@ module Rope {
             left := nLeft;
             right := nRight;
             data := "";
-            var w := 0;
 
             var nTemp := nLeft;
-            while (nTemp != null)
-                invariant nTemp == null || nTemp.Valid()
+            var w := 0;
+            ghost var nodesTraversed : set<Node> := {};
+
+            while (nTemp.right != null)
+                invariant nTemp != null
+                invariant nTemp.Valid()
+                // invariant nTemp.left != null ==> nTemp.weight == |nTemp.left.Contents|
+                invariant forall node :: node in nodesTraversed ==> node.weight <= w
+                // invariant forall node :: node in nodesTraversed ==> node in nLeft.Repr
+                invariant nodesTraversed == nLeft.Repr - nTemp.Repr
+                // invariant nTemp.right == null ==> nodesTraversed 
+                invariant nTemp.right == null ==> w + nTemp.weight == |nLeft.Contents|
+                invariant nTemp.right != null ==> w + nTemp.weight + |nTemp.right.Contents| == |nLeft.Contents| 
+                // invariant nTemp.right != null ==> nLeft.Repr == Repr + nTemp.right.Repr
+                // invariant forall child :: child in nLeft.Repr ==> child.weight
+                // invariant w <= nTemp.Contents
                 decreases nTemp.Repr
             {
+                // nTemp.right.right != null ==> w + nTemp.weight + nTemp.right.weight + |nTemp.right.right.Contents| == |nTemp.right.Contents|
                 w := w + nTemp.weight;
+                assert w >= 0;
+                if (nTemp.left != null) {
+                    nodesTraversed := nodesTraversed + nTemp.left.Repr + {nTemp};
+                } else {
+                    nodesTraversed := nodesTraversed + {nTemp};
+                }
+                // nTemp.right.right != null ==> w + nTemp.right.weight + |nTemp.right.right.Contents| == |nTemp.right.Contents|
+                // assert nodesTraversed == nLeft.Repr - nTemp.right.Repr;
                 nTemp := nTemp.right;
+                // assert nodesTraversed == nLeft.Repr - nTemp.Repr;
+                // nTemp.right != null ==> w + nTemp.weight + |nTemp.right.Contents| == |nTemp.Contents|
+            }
+            w := w + nTemp.weight;
+            if (nTemp.left != null) {
+                nodesTraversed := nodesTraversed + nTemp.left.Repr + {nTemp};
+            } else {
+                nodesTraversed := nodesTraversed + {nTemp};
             }
             weight := w;
+            // assert nLeft.weight <= |nLeft.Contents|;
+            // assert |nLeft.Contents| == w;
+            // assert nLeft.left != null ==> forall child :: child in nLeft.left.Repr ==> child.weight <= nLeft.weight;
+            // assert nLeft.weight <= w;
+            // assert nLeft.right != null ==> nLeft.right.weight <= w;
 
             Contents := nLeft.Contents + nRight.Contents;
             Repr := {this} + nLeft.Repr + nRight.Repr;
