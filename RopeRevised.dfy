@@ -176,6 +176,7 @@ module Rope {
             invariant nTemp.Valid()
             invariant index == |n.Contents| - 1 ==> n2 == null
             invariant n1 != null ==> n1.Valid()
+            invariant 0 <= i < |nTemp.Contents|
             // invariant 0 <= i - nTemp.weight <= nTemp.weight
             // invariant n1 != null && n2 != null ==> n
             decreases nTemp.Repr
