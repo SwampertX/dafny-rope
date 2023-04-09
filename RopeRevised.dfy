@@ -131,11 +131,80 @@ module Rope {
 
     }
 
-    method concat(n1: Node, n2: Node) returns (n: Node) 
-        requires n1.Valid() && n2.Valid() && n1.Repr !! n2.Repr
-        ensures n.Valid() && n.Contents == n1.Contents + n2.Contents
+    method concat(n1: Node?, n2: Node?) returns (n: Node?) 
+        requires (n1 != null) ==> n1.Valid()
+        requires (n2 != null) ==> n2.Valid()
+        requires (n1 != null && n2 != null) ==> (n1.Repr !! n2.Repr)
+        ensures (n1 == null && n2 == null) ==> n == null
+        ensures (n1 == null && n2 != null) ==> n == n2
+        ensures (n1 != null && n2 == null) ==> n == n1
+        ensures (n1 != null && n2 != null) ==> (n != null && n.Valid() && n.Contents == n1.Contents + n2.Contents)
     {
-        n := new Node.NonTerminal(n1, n2);
+        if (n1 == null) {
+            n := n2;
+        } else if (n2 == null) {
+            n := n1;
+        } else {
+            n := new Node.NonTerminal(n1, n2);
+        } 
     } 
+
+    method split(n: Node, index: nat) returns (n1: Node?, n2: Node?) 
+        requires n.Valid() && 0 <= index < |n.Contents|
+        modifies n
+        ensures index == 0 ==> n1 == null && n2 == n
+        ensures index == |n.Contents| - 1 ==> n2 == null && n1 == n
+        ensures 0 < index < |n.Contents| - 1 ==> n1 != null && n2 != null && 
+                                                 n1.Valid() && n2.Valid() && 
+                                                 n.Contents == n1.Contents + n2.Contents &&
+                                                 n1.Contents == n.Contents[..index] && n2.Contents == n.Contents[index..]
+        ensures n1 != null && n2 != null ==> n1.Repr !! n2.Repr
+    {
+        var nTemp := n;
+        var i := index;
+        n1 := null;
+        n2 := null;
+
+        if (index == 0) {
+            n1 := null;
+            n2 := n;
+            return;
+        }
+
+        while (!(nTemp.left == null && nTemp.right == null))
+            invariant nTemp != null
+            invariant nTemp.Valid()
+            invariant index == |n.Contents| - 1 ==> n2 == null
+            invariant n1 != null ==> n1.Valid()
+            // invariant 0 <= i - nTemp.weight <= nTemp.weight
+            // invariant n1 != null && n2 != null ==> n
+            decreases nTemp.Repr
+        {
+            if (i < nTemp.weight) {
+                // split point lies on the left subtree - so right subtree is part of the second half
+                n2 := concat(nTemp.right, n2);
+                nTemp.right := null;
+                nTemp := nTemp.left;
+            } else {
+                // split point lies on the right subtree
+                n1 := concat(n1, nTemp.left);
+                i := i - nTemp.weight;
+                nTemp := nTemp.right;
+            }
+        }
+
+        // have found the terminal node with the desired split point as nTemp
+        if (i == 0) {
+            n2 := concat(nTemp, n2);
+        } else if (i == nTemp.weight - 1) {
+            n1 := concat(n1, nTemp);
+        } else {
+            // Need to split leaf node into two parts in new tree
+            var splitLeft := new Node.Terminal(nTemp.data[..i]);
+            var splitRight := new Node.Terminal(nTemp.data[i..]);
+            n1 := concat(n1, splitLeft);
+            n2 := concat(splitRight, n2);
+        }
+    }
 }
 
