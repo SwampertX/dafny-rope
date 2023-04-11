@@ -172,13 +172,55 @@ module Rope {
             
         }
 
+        method getCharAtIndexNew(index: nat) returns (nTemp: Node, i: nat, c: char)
+            requires Valid() && 0 <= index < |Contents|
+            ensures c == Contents[index]
+            ensures 0 <= i < |nTemp.data|
+            ensures nTemp.Valid() && nTemp.data[i] == c
+        {
+            nTemp := this;
+            i := index;
+
+            // assert (nTemp.weight > 0) ==> (nTemp.weight != 0);
+            // assert (left == null && right != null) ==> weight == 0;
+            // assert (nTemp.left == null && nTemp.right != null) ==> nTemp.weight == 0;
+            // assert (nTemp.weight > 0) ==> (nTemp.left == null && nTemp.right == null) || (nTemp.left != null || nTemp.right == null);
+            // assert (nTemp.weight > 0 && (nTemp.left != null || nTemp.right != null)) ==> nTemp.left != null;
+            // assert (nTemp.weight < |nTemp.Contents|) ==> nTemp.right != null;
+            // assert (|nTemp.Contents| > i >= nTemp.weight >= 0) ==>
+
+            while (!(nTemp.left == null && nTemp.right == null)) 
+                // invariant nTemp != null
+                invariant nTemp.Valid()
+                invariant 0 <= i < |nTemp.Contents|   
+                invariant nTemp.Contents[i] == Contents[index] 
+                decreases nTemp.Repr
+            {
+                if (i < nTemp.weight) {
+                    // assert nTemp.weight > 0;
+                    // assert !(nTemp.left == null && nTemp.right == null);
+                    // assert (nTemp.weight > 0 && (nTemp.left != null || nTemp.right != null)) ==> nTemp.left != null;
+                    // assert nTemp.left != null;
+                    nTemp := nTemp.left;
+                    // assert nTemp != null;
+                } else {
+                    i := i - nTemp.weight;
+                    // assert nTemp.right != null;
+                    nTemp := nTemp.right;
+                }
+            }
+
+            // Have reached the terminal node with index i
+            c := nTemp.data[i];
+        }
+
         method report(i: nat, j: nat) returns (s: string)
             requires Valid() && 0 <= i <= j < |Contents|
             ensures s == Contents[i..j]
         {
             // ghost var start: Node, i': nat, tmp1: char;
-            var start: Node, i': nat, tmp1: char := this.getCharAtIndex(i);
-            var end: Node, j': nat, tmp2: char := this.getCharAtIndex(i);
+            var start: Node, i': nat, tmp1: char := this.getCharAtIndexNew(i);
+            var end: Node, j': nat, tmp2: char := this.getCharAtIndexNew(i);
 
             // push i into stack: [i] + toVisitStack;
             // pop stack: top := toVisitStack[0]; toVisitStack[1..];
@@ -226,6 +268,7 @@ module Rope {
                 }
             }
         }
+        
         method branchTerminalNode(index: nat)
             requires Valid() && left == null && right == null && 0 < index < |Contents| - 1
             modifies Repr
