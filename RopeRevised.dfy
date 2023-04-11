@@ -233,7 +233,7 @@ module Rope {
             s := "";
             while (|toVisitStack| > 0)
                 decreases |notVisited|
-                invariant s
+                // invariant s
             {
                 // pop toVisitStack
                 var top := toVisitStack[0];
