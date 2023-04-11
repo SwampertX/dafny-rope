@@ -2,6 +2,7 @@ include "Utils.dfy"
 
 module Rope {
     import opened Utils
+    datatype traversalState = before | reading
 
     class Node {
         ghost var Contents: string;
@@ -171,6 +172,60 @@ module Rope {
             
         }
 
+        method report(i: nat, j: nat) returns (s: string)
+            requires Valid() && 0 <= i <= j < |Contents|
+            ensures s == Contents[i..j]
+        {
+            // ghost var start: Node, i': nat, tmp1: char;
+            var start: Node, i': nat, tmp1: char := this.getCharAtIndex(i);
+            var end: Node, j': nat, tmp2: char := this.getCharAtIndex(i);
+
+            // push i into stack: [i] + toVisitStack;
+            // pop stack: top := toVisitStack[0]; toVisitStack[1..];
+            var toVisitStack: seq<Node> := [this];
+            var notVisited: set<Node> := Repr;
+            var state: traversalState := before;
+
+            // state: 0, 1, 2, representing before left[i], between, after
+            // right[j]
+            s := "";
+            while (|toVisitStack| > 0)
+                decreases |notVisited|
+                invariant s
+            {
+                // pop toVisitStack
+                var top := toVisitStack[0];
+                toVisitStack := toVisitStack[1..];
+                // mark top as visited
+                assert top in notVisited;
+                notVisited := notVisited - {top};
+
+                // if top is terminal: add it to visited
+                if top.left == null && top.right == null {
+                    if state == before {
+                        if top == start {
+                            state := reading;
+                            s := top.data[i'..];
+                        }
+                    } else {
+                        assert state == reading;
+                        if top == end {
+                            s := s + top.data[..j'];
+                            break;
+                        } else {
+                            s := s + data;
+                        }
+                    }
+                } else {
+                    if top.right != null {
+                        toVisitStack := [top.right] + toVisitStack;
+                    }
+                    if top.left != null {
+                        toVisitStack := [top.left] + toVisitStack;
+                    }
+                }
+            }
+        }
         method branchTerminalNode(index: nat)
             requires Valid() && left == null && right == null && 0 < index < |Contents| - 1
             modifies Repr
@@ -225,8 +280,9 @@ module Rope {
 
     method split(n: Node, index: nat) returns (n1: Node?, n2: Node?)
         requires n.Valid() && 0 < index < |n.Contents|
-        modifies n.Repr
-        // ensures n.Valid()
+        // modifies n.Repr
+        ensures n1.Valid() && n1.Contents == n.Contents[..index]
+        ensures n2 != null ==> n2.Valid()
     {
         var nTemp := n;
         var i := index;
@@ -238,25 +294,33 @@ module Rope {
             invariant nTemp != null
             invariant nTemp.Valid()
             invariant 0 <= i < |nTemp.Contents|   
-            invariant n1 != null ==> n1.Valid()
-            invariant n2 != null ==> n2.Valid()
+            invariant n1 != null ==> n1.Valid() && nTemp.Repr !! n1.Repr
+            invariant n2 != null ==> n2.Valid() && nTemp.Repr !! n2.Repr
             // invariant (nTemp.right != null && n2 != null) ==> nTemp.right.Repr !! n2.Repr
-            // invariant nTemp.Contents[i] == n.Contents[index] 
+            invariant nTemp.Contents[i] == n.Contents[index] 
             // invariant forall j :: 0 <= j < |parentTrack| ==> parentTrack[j].Repr <= n.Repr
             decreases nTemp.Repr
         {
             parentTrack := parentTrack + [nTemp];
             if (i < nTemp.weight) {
                 // assert (nTemp.right != null) ==> nTemp.right.Repr !! n2.Repr;
-                assert (nTemp.right != null) ==> nTemp.left.Repr !! nTemp.right.Repr;
-                assert forall x :: (((x <= nTemp.left.Repr) && (nTemp.right != null)) ==> x !! nTemp.right.Repr);
-                assert nTemp.right != null ==> (forall y :: (y <= nTemp.right.Repr ==> nTemp.left.Repr !! y));
+                // assert (nTemp.right != null) ==> nTemp.left.Repr !! nTemp.right.Repr;
+                // assert forall x :: (((x <= nTemp.left.Repr) && (nTemp.right != null)) ==> x !! nTemp.right.Repr);
+                // assert nTemp.right != null ==> (forall y :: (y <= nTemp.right.Repr ==> nTemp.left.Repr !! y));
                 // assert exists x :: (((nTemp.right != null) && (x <= nTemp.right.Repr)) ==> x !! nTemp.left.Repr);
-                var placeholder := concat(nTemp.right, n2);
+                // var tmpPointer := nTemp.right;
+                // if (tmpPointer != null) {
+                //     nTemp.right := null;
+                //     nTemp.Contents := nTemp.left.Contents;
+                //     nTemp.Repr := nTemp.Repr - tmpPointer.Repr;
+                //     assert nTemp.Valid();
+                //     assert n.Valid();
+                // }
                 n2 := concat(nTemp.right, n2);
                 nTemp := nTemp.left;
-                assert nTemp != null;
+                // assert nTemp != null;
             } else {
+                n1 := concat(n1, nTemp.left);
                 i := i - nTemp.weight;
                 nTemp := nTemp.right;
             }
@@ -267,21 +331,23 @@ module Rope {
         if (0 < i < nTemp.weight - 1) {
             var splitLeft := new Node.Terminal(nTemp.data[..i]);
             var splitRight := new Node.Terminal(nTemp.data[i..]);
-            var newNode := new Node.NonTerminal(splitLeft, splitRight);
-            // nTemp.branchTerminalNode(i);
-            var j := |parentTrack| - 1;
-            while (j >= 0) 
-            {
-                // parentTrack[j].Repr := parentTrack[j].Repr - nTemp.Repr + newNode.Repr;
-                if (j == |parentTrack| - 1) {
-                    if (parentTrack[j].left == nTemp) {
-                        parentTrack[j].left := newNode;
-                    } else {
-                        parentTrack[j].right := newNode;
-                    }
-                }
-                j := j - 1;
-            }
+            n1 := concat(n1, splitLeft);
+            n2 := concat(splitRight, n2);
+            // var newNode := new Node.NonTerminal(splitLeft, splitRight);
+            // // nTemp.branchTerminalNode(i);
+            // var j := |parentTrack| - 1;
+            // while (j >= 0) 
+            // {
+            //     // parentTrack[j].Repr := parentTrack[j].Repr - nTemp.Repr + newNode.Repr;
+            //     if (j == |parentTrack| - 1) {
+            //         if (parentTrack[j].left == nTemp) {
+            //             parentTrack[j].left := newNode;
+            //         } else {
+            //             parentTrack[j].right := newNode;
+            //         }
+            //     }
+            //     j := j - 1;
+            // }
         }
 
     }
