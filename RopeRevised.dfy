@@ -60,7 +60,7 @@ module Rope {
         // constructor for creating a terminal node
         constructor Terminal(x: string)
             requires x != ""
-            ensures Valid() && fresh(Repr)
+            ensures Valid() && fresh(Repr) && left == null && right == null && data == x
         { 
             data := x;
             weight := |x|;
@@ -171,6 +171,38 @@ module Rope {
             
         }
 
+        method branchTerminalNode(index: nat)
+            requires Valid() && left == null && right == null && 0 < index < |Contents| - 1
+            modifies Repr
+            ensures Valid() && left != null && right != null && fresh(Repr - old(Repr)) && Contents == old(Contents)
+        {
+            var splitLeft := new Node.Terminal(data[..index]);
+            // assert splitLeft.Valid();
+            // assert splitLeft.right == null && splitLeft.left == null;
+            // assert splitLeft.weight == |splitLeft.data|;
+            // assert splitLeft.data == data[..index];
+            // assert |data[..index]| == index;
+            // assert splitLeft.weight == index;
+            var splitRight := new Node.Terminal(data[index..]);
+            left := splitLeft;
+            right := splitRight;
+            weight := index;
+            data := "";
+            Repr := Repr + splitLeft.Repr + splitRight.Repr;
+        }
+
+        method setRightChildToEmpty()
+            requires Valid()
+            modifies Repr
+            // ensures Valid() && right == null && 
+        {
+            right := null;
+            Repr := {this};
+            if (left != null) {
+                Repr := Repr + left.Repr;
+            }   
+        }
+
     }
 
     method concat(n1: Node?, n2: Node?) returns (n: Node?) 
@@ -180,7 +212,7 @@ module Rope {
         ensures (n1 == null && n2 == null) ==> n == null
         ensures (n1 == null && n2 != null) ==> n == n2
         ensures (n1 != null && n2 == null) ==> n == n1
-        ensures (n1 != null && n2 != null) ==> (n != null && n.Valid() && n.Contents == n1.Contents + n2.Contents)
+        ensures (n1 != null && n2 != null) ==> (n != null && n.Valid() && n.Contents == n1.Contents + n2.Contents && fresh(n.Repr - n1.Repr - n2.Repr))
     {
         if (n1 == null) {
             n := n2;
@@ -190,6 +222,69 @@ module Rope {
             n := new Node.NonTerminal(n1, n2);
         } 
     } 
+
+    method split(n: Node, index: nat) returns (n1: Node?, n2: Node?)
+        requires n.Valid() && 0 < index < |n.Contents|
+        modifies n.Repr
+        // ensures n.Valid()
+    {
+        var nTemp := n;
+        var i := index;
+        var parentTrack : seq<Node> := [];
+        n1 := null;
+        n2 := null;
+
+        while (!(nTemp.left == null && nTemp.right == null)) 
+            invariant nTemp != null
+            invariant nTemp.Valid()
+            invariant 0 <= i < |nTemp.Contents|   
+            invariant n1 != null ==> n1.Valid()
+            invariant n2 != null ==> n2.Valid()
+            // invariant (nTemp.right != null && n2 != null) ==> nTemp.right.Repr !! n2.Repr
+            // invariant nTemp.Contents[i] == n.Contents[index] 
+            // invariant forall j :: 0 <= j < |parentTrack| ==> parentTrack[j].Repr <= n.Repr
+            decreases nTemp.Repr
+        {
+            parentTrack := parentTrack + [nTemp];
+            if (i < nTemp.weight) {
+                // assert (nTemp.right != null) ==> nTemp.right.Repr !! n2.Repr;
+                assert (nTemp.right != null) ==> nTemp.left.Repr !! nTemp.right.Repr;
+                assert forall x :: (((x <= nTemp.left.Repr) && (nTemp.right != null)) ==> x !! nTemp.right.Repr);
+                assert nTemp.right != null ==> (forall y :: (y <= nTemp.right.Repr ==> nTemp.left.Repr !! y));
+                // assert exists x :: (((nTemp.right != null) && (x <= nTemp.right.Repr)) ==> x !! nTemp.left.Repr);
+                var placeholder := concat(nTemp.right, n2);
+                n2 := concat(nTemp.right, n2);
+                nTemp := nTemp.left;
+                assert nTemp != null;
+            } else {
+                i := i - nTemp.weight;
+                nTemp := nTemp.right;
+            }
+        }
+        
+        // Have reached the terminal node with index i
+        // Check if need to split leaf node into two parts in new tree
+        if (0 < i < nTemp.weight - 1) {
+            var splitLeft := new Node.Terminal(nTemp.data[..i]);
+            var splitRight := new Node.Terminal(nTemp.data[i..]);
+            var newNode := new Node.NonTerminal(splitLeft, splitRight);
+            // nTemp.branchTerminalNode(i);
+            var j := |parentTrack| - 1;
+            while (j >= 0) 
+            {
+                // parentTrack[j].Repr := parentTrack[j].Repr - nTemp.Repr + newNode.Repr;
+                if (j == |parentTrack| - 1) {
+                    if (parentTrack[j].left == nTemp) {
+                        parentTrack[j].left := newNode;
+                    } else {
+                        parentTrack[j].right := newNode;
+                    }
+                }
+                j := j - 1;
+            }
+        }
+
+    }
 
     // method split(n: Node, index: nat) returns (n1: Node?, n2: Node?) 
     //     requires n.Valid() && 0 <= index < |n.Contents|
