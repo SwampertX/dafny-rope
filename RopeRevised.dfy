@@ -2,6 +2,7 @@ include "Utils.dfy"
 
 module Rope {
     import opened Utils
+    datatype traversalState = before | reading
 
     class Node {
         ghost var Contents: string;
@@ -129,12 +130,14 @@ module Rope {
             Repr := {this} + nLeft.Repr + nRight.Repr;
         }   
 
-        method getCharAtIndex(index: nat) returns (c: char)
+        method getCharAtIndex(index: nat) returns (nTemp: Node, i: nat, c: char)
             requires Valid() && 0 <= index < |Contents|
             ensures c == Contents[index]
+            ensures 0 <= i < |nTemp.data|
+            ensures nTemp.Valid() && nTemp.data[i] == c
         {
-            var nTemp := this;
-            var i := index;
+            nTemp := this;
+            i := index;
 
             // assert (nTemp.weight > 0) ==> (nTemp.weight != 0);
             // assert (left == null && right != null) ==> weight == 0;
@@ -146,7 +149,7 @@ module Rope {
             // assert (|nTemp.Contents| > i >= nTemp.weight >= 0) ==>
 
             while (!(nTemp.left == null && nTemp.right == null)) 
-                invariant nTemp != null
+                // invariant nTemp != null
                 invariant nTemp.Valid()
                 invariant 0 <= i < |nTemp.Contents|   
                 invariant nTemp.Contents[i] == Contents[index] 
@@ -168,9 +171,62 @@ module Rope {
             
             // Have reached the terminal node with index i
             c := nTemp.data[i];
-            
         }
 
+        method report(i: nat, j: nat) returns (s: string)
+            requires Valid() && 0 <= i <= j < |Contents|
+            ensures s == Contents[i..j]
+        {
+            // ghost var start: Node, i': nat, tmp1: char;
+            var start: Node, i': nat, tmp1: char := this.getCharAtIndex(i);
+            var end: Node, j': nat, tmp2: char := this.getCharAtIndex(i);
+
+            // push i into stack: [i] + toVisitStack;
+            // pop stack: top := toVisitStack[0]; toVisitStack[1..];
+            var toVisitStack: seq<Node> := [this];
+            var notVisited: set<Node> := Repr;
+            var state: traversalState := before;
+
+            // state: 0, 1, 2, representing before left[i], between, after
+            // right[j]
+            s := "";
+            while (|toVisitStack| > 0)
+                decreases |notVisited|
+                invariant s
+            {
+                // pop toVisitStack
+                var top := toVisitStack[0];
+                toVisitStack := toVisitStack[1..];
+                // mark top as visited
+                assert top in notVisited;
+                notVisited := notVisited - {top};
+
+                // if top is terminal: add it to visited
+                if top.left == null && top.right == null {
+                    if state == before {
+                        if top == start {
+                            state := reading;
+                            s := top.data[i'..];
+                        }
+                    } else {
+                        assert state == reading;
+                        if top == end {
+                            s := s + top.data[..j'];
+                            break;
+                        } else {
+                            s := s + data;
+                        }
+                    }
+                } else {
+                    if top.right != null {
+                        toVisitStack := [top.right] + toVisitStack;
+                    }
+                    if top.left != null {
+                        toVisitStack := [top.left] + toVisitStack;
+                    }
+                }
+            }
+        }
     }
 
     method concat(n1: Node?, n2: Node?) returns (n: Node?) 
@@ -190,6 +246,7 @@ module Rope {
             n := new Node.NonTerminal(n1, n2);
         } 
     } 
+
 
     // method split(n: Node, index: nat) returns (n1: Node?, n2: Node?) 
     //     requires n.Valid() && 0 <= index < |n.Contents|
