@@ -310,7 +310,7 @@ module Rope {
         ensures (n1 == null && n2 == null) ==> n == null
         ensures (n1 == null && n2 != null) ==> n == n2
         ensures (n1 != null && n2 == null) ==> n == n1
-        ensures (n1 != null && n2 != null) ==> (n != null && n.Valid() && n.Contents == n1.Contents + n2.Contents && fresh(n.Repr - n1.Repr - n2.Repr))
+        ensures (n1 != null && n2 != null) ==> (n != null && n.Valid() && n.left == n1 && n.right == n2 && n.Contents == n1.Contents + n2.Contents && fresh(n.Repr - n1.Repr - n2.Repr))
     {
         if (n1 == null) {
             n := n2;
