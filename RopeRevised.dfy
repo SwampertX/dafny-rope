@@ -87,19 +87,12 @@ module Rope {
             while (nTemp.right != null)
                 invariant nTemp != null
                 invariant nTemp.Valid()
-                // invariant nTemp.left != null ==> nTemp.weight == |nTemp.left.Contents|
                 invariant forall node :: node in nodesTraversed ==> node.weight <= w
-                // invariant forall node :: node in nodesTraversed ==> node in nLeft.Repr
                 invariant nodesTraversed == nLeft.Repr - nTemp.Repr
-                // invariant nTemp.right == null ==> nodesTraversed 
                 invariant nTemp.right == null ==> w + nTemp.weight == |nLeft.Contents|
                 invariant nTemp.right != null ==> w + nTemp.weight + |nTemp.right.Contents| == |nLeft.Contents| 
-                // invariant nTemp.right != null ==> nLeft.Repr == Repr + nTemp.right.Repr
-                // invariant forall child :: child in nLeft.Repr ==> child.weight
-                // invariant w <= nTemp.Contents
                 decreases nTemp.Repr
             {
-                // nTemp.right.right != null ==> w + nTemp.weight + nTemp.right.weight + |nTemp.right.right.Contents| == |nTemp.right.Contents|
                 w := w + nTemp.weight;
                 assert w >= 0;
                 if (nTemp.left != null) {
@@ -107,11 +100,7 @@ module Rope {
                 } else {
                     nodesTraversed := nodesTraversed + {nTemp};
                 }
-                // nTemp.right.right != null ==> w + nTemp.right.weight + |nTemp.right.right.Contents| == |nTemp.right.Contents|
-                // assert nodesTraversed == nLeft.Repr - nTemp.right.Repr;
                 nTemp := nTemp.right;
-                // assert nodesTraversed == nLeft.Repr - nTemp.Repr;
-                // nTemp.right != null ==> w + nTemp.weight + |nTemp.right.Contents| == |nTemp.Contents|
             }
             w := w + nTemp.weight;
             if (nTemp.left != null) {
@@ -120,11 +109,6 @@ module Rope {
                 nodesTraversed := nodesTraversed + {nTemp};
             }
             weight := w;
-            // assert nLeft.weight <= |nLeft.Contents|;
-            // assert |nLeft.Contents| == w;
-            // assert nLeft.left != null ==> forall child :: child in nLeft.left.Repr ==> child.weight <= nLeft.weight;
-            // assert nLeft.weight <= w;
-            // assert nLeft.right != null ==> nLeft.right.weight <= w;
 
             Contents := nLeft.Contents + nRight.Contents;
             Repr := {this} + nLeft.Repr + nRight.Repr;
@@ -137,15 +121,6 @@ module Rope {
             var nTemp := this;
             var i := index;
 
-            // assert (nTemp.weight > 0) ==> (nTemp.weight != 0);
-            // assert (left == null && right != null) ==> weight == 0;
-            // assert (nTemp.left == null && nTemp.right != null) ==> nTemp.weight == 0;
-            // assert (nTemp.weight > 0) ==> (nTemp.left == null && nTemp.right == null) || (nTemp.left != null || nTemp.right == null);
-            // assert (nTemp.weight > 0 && (nTemp.left != null || nTemp.right != null)) ==> nTemp.left != null;
-
-            // assert (nTemp.weight < |nTemp.Contents|) ==> nTemp.right != null;
-            // assert (|nTemp.Contents| > i >= nTemp.weight >= 0) ==>
-
             while (!(nTemp.left == null && nTemp.right == null)) 
                 invariant nTemp != null
                 invariant nTemp.Valid()
@@ -154,15 +129,9 @@ module Rope {
                 decreases nTemp.Repr
             {
                 if (i < nTemp.weight) {
-                    // assert nTemp.weight > 0;
-                    // assert !(nTemp.left == null && nTemp.right == null);
-                    // assert (nTemp.weight > 0 && (nTemp.left != null || nTemp.right != null)) ==> nTemp.left != null;
-                    // assert nTemp.left != null;
                     nTemp := nTemp.left;
-                    // assert nTemp != null;
                 } else {
                     i := i - nTemp.weight;
-                    // assert nTemp.right != null;
                     nTemp := nTemp.right;
                 }
             }
@@ -181,14 +150,6 @@ module Rope {
             nTemp := this;
             i := index;
 
-            // assert (nTemp.weight > 0) ==> (nTemp.weight != 0);
-            // assert (left == null && right != null) ==> weight == 0;
-            // assert (nTemp.left == null && nTemp.right != null) ==> nTemp.weight == 0;
-            // assert (nTemp.weight > 0) ==> (nTemp.left == null && nTemp.right == null) || (nTemp.left != null || nTemp.right == null);
-            // assert (nTemp.weight > 0 && (nTemp.left != null || nTemp.right != null)) ==> nTemp.left != null;
-            // assert (nTemp.weight < |nTemp.Contents|) ==> nTemp.right != null;
-            // assert (|nTemp.Contents| > i >= nTemp.weight >= 0) ==>
-
             while (!(nTemp.left == null && nTemp.right == null)) 
                 // invariant nTemp != null
                 invariant nTemp.Valid()
@@ -197,15 +158,9 @@ module Rope {
                 decreases nTemp.Repr
             {
                 if (i < nTemp.weight) {
-                    // assert nTemp.weight > 0;
-                    // assert !(nTemp.left == null && nTemp.right == null);
-                    // assert (nTemp.weight > 0 && (nTemp.left != null || nTemp.right != null)) ==> nTemp.left != null;
-                    // assert nTemp.left != null;
                     nTemp := nTemp.left;
-                    // assert nTemp != null;
                 } else {
                     i := i - nTemp.weight;
-                    // assert nTemp.right != null;
                     nTemp := nTemp.right;
                 }
             }
@@ -268,38 +223,6 @@ module Rope {
                 }
             }
         }
-        
-        method branchTerminalNode(index: nat)
-            requires Valid() && left == null && right == null && 0 < index < |Contents| - 1
-            modifies Repr
-            ensures Valid() && left != null && right != null && fresh(Repr - old(Repr)) && Contents == old(Contents)
-        {
-            var splitLeft := new Node.Terminal(data[..index]);
-            // assert splitLeft.Valid();
-            // assert splitLeft.right == null && splitLeft.left == null;
-            // assert splitLeft.weight == |splitLeft.data|;
-            // assert splitLeft.data == data[..index];
-            // assert |data[..index]| == index;
-            // assert splitLeft.weight == index;
-            var splitRight := new Node.Terminal(data[index..]);
-            left := splitLeft;
-            right := splitRight;
-            weight := index;
-            data := "";
-            Repr := Repr + splitLeft.Repr + splitRight.Repr;
-        }
-
-        method setRightChildToEmpty()
-            requires Valid()
-            modifies Repr
-            // ensures Valid() && right == null && 
-        {
-            right := null;
-            Repr := {this};
-            if (left != null) {
-                Repr := Repr + left.Repr;
-            }   
-        }
 
     }
 
@@ -308,8 +231,8 @@ module Rope {
         requires (n2 != null) ==> n2.Valid()
         requires (n1 != null && n2 != null) ==> (n1.Repr !! n2.Repr)
         ensures (n1 == null && n2 == null) ==> n == null
-        ensures (n1 == null && n2 != null) ==> n == n2
-        ensures (n1 != null && n2 == null) ==> n == n1
+        ensures (n1 == null && n2 != null) ==> n == n2 && n != null && n.Valid() && n.Contents == n2.Contents
+        ensures (n1 != null && n2 == null) ==> n == n1 && n != null && n.Valid() && n.Contents == n1.Contents
         ensures (n1 != null && n2 != null) ==> (n != null && n.Valid() && n.left == n1 && n.right == n2 && n.Contents == n1.Contents + n2.Contents && fresh(n.Repr - n1.Repr - n2.Repr))
     {
         if (n1 == null) {
@@ -323,47 +246,37 @@ module Rope {
 
     method split(n: Node, index: nat) returns (n1: Node?, n2: Node?)
         requires n.Valid() && 0 < index < |n.Contents|
-        // modifies n.Repr
-        ensures n1.Valid() && n1.Contents == n.Contents[..index]
-        ensures n2 != null ==> n2.Valid()
+        // ensures n1 != null ==> n1.Valid() && n1.Contents == old(n.Contents[..index])
+        // ensures n2 != null ==> n2.Valid() && n2.Contents == old(n.Contents[index..])
     {
         var nTemp := n;
         var i := index;
-        var parentTrack : seq<Node> := [];
         n1 := null;
         n2 := null;
 
         while (!(nTemp.left == null && nTemp.right == null)) 
             invariant nTemp != null
             invariant nTemp.Valid()
-            invariant 0 <= i < |nTemp.Contents|   
+            invariant 0 <= i < |nTemp.Contents|  
             invariant n1 != null ==> n1.Valid() && nTemp.Repr !! n1.Repr
             invariant n2 != null ==> n2.Valid() && nTemp.Repr !! n2.Repr
-            // invariant (nTemp.right != null && n2 != null) ==> nTemp.right.Repr !! n2.Repr
-            invariant nTemp.Contents[i] == n.Contents[index] 
-            // invariant forall j :: 0 <= j < |parentTrack| ==> parentTrack[j].Repr <= n.Repr
+            invariant n1 == null ==> nTemp.Contents[..i] == old(n.Contents[..index])
+            invariant n1 != null ==> n1.Contents + nTemp.Contents[..i] == old(n.Contents[..index])
+            invariant n2 == null ==> nTemp.Contents[i..] == old(n.Contents[index..])
+            invariant n2 != null ==> nTemp.Contents[i..] + n2.Contents == old(n.Contents[index..])
+            invariant nTemp.Contents[i] == n.Contents[index]  
             decreases nTemp.Repr
         {
-            parentTrack := parentTrack + [nTemp];
             if (i < nTemp.weight) {
-                // assert (nTemp.right != null) ==> nTemp.right.Repr !! n2.Repr;
-                // assert (nTemp.right != null) ==> nTemp.left.Repr !! nTemp.right.Repr;
-                // assert forall x :: (((x <= nTemp.left.Repr) && (nTemp.right != null)) ==> x !! nTemp.right.Repr);
-                // assert nTemp.right != null ==> (forall y :: (y <= nTemp.right.Repr ==> nTemp.left.Repr !! y));
-                // assert exists x :: (((nTemp.right != null) && (x <= nTemp.right.Repr)) ==> x !! nTemp.left.Repr);
-                // var tmpPointer := nTemp.right;
-                // if (tmpPointer != null) {
-                //     nTemp.right := null;
-                //     nTemp.Contents := nTemp.left.Contents;
-                //     nTemp.Repr := nTemp.Repr - tmpPointer.Repr;
-                //     assert nTemp.Valid();
-                //     assert n.Valid();
-                // }
-                n2 := concat(nTemp.right, n2);
+                var newn2 := concat(nTemp.right, n2);
+                assert n2 != null ==> newn2 != null; 
+                n2 := newn2;
                 nTemp := nTemp.left;
-                // assert nTemp != null;
-            } else {
-                n1 := concat(n1, nTemp.left);
+            } else { 
+                var newn1 := concat(n1, nTemp.left);
+                // weird behaviour - uncommenting asserts causes issues...and postconditions being uncommented makes the passing invariants fail
+                assert n1 != null ==> newn1 != null;
+                n1 := newn1;
                 i := i - nTemp.weight;
                 nTemp := nTemp.right;
             }
@@ -376,127 +289,8 @@ module Rope {
             var splitRight := new Node.Terminal(nTemp.data[i..]);
             n1 := concat(n1, splitLeft);
             n2 := concat(splitRight, n2);
-            // var newNode := new Node.NonTerminal(splitLeft, splitRight);
-            // // nTemp.branchTerminalNode(i);
-            // var j := |parentTrack| - 1;
-            // while (j >= 0) 
-            // {
-            //     // parentTrack[j].Repr := parentTrack[j].Repr - nTemp.Repr + newNode.Repr;
-            //     if (j == |parentTrack| - 1) {
-            //         if (parentTrack[j].left == nTemp) {
-            //             parentTrack[j].left := newNode;
-            //         } else {
-            //             parentTrack[j].right := newNode;
-            //         }
-            //     }
-            //     j := j - 1;
-            // }
         }
 
     }
-
-    // method split(n: Node, index: nat) returns (n1: Node?, n2: Node?) 
-    //     requires n.Valid() && 0 <= index < |n.Contents|
-    //     // ensures index == 0 ==> n1 == null && n2 != null && n2.Contents == n.Contents
-    //     // ensures index == |n.Contents| - 1 ==> n2 == null && n1 != null && n1.Contents == n.Contents
-    //     // ensures 0 < index < |n.Contents| - 1 ==> n1 != null && n2 != null && 
-    //     //                                          n1.Valid() && n2.Valid() && 
-    //     //                                          n.Contents == n1.Contents + n2.Contents &&
-    //     //                                          n1.Contents == n.Contents[..index] && n2.Contents == n.Contents[index..]
-    //     // ensures n1 != null && n2 != null ==> n1.Repr !! n2.Repr
-    // {
-    //     var nTemp := n;
-    //     var i := index;
-    //     n1 := null;
-    //     n2 := null;
-
-    //     if (index == 0) {
-    //         n1 := null;
-    //         n2 := n;
-    //         return;
-    //     }
-    //     // ghost var leftSize := 0;
-    //     // ghost var rightSize := |n.Contents| - 1;
-    //     // // ghost var otherSide := 0;
-    //     // // assert nTemp.weight <= |n.Contents|;
-
-    //     while (!(nTemp.left == null && nTemp.right == null)) 
-    //         invariant i >= 0
-    //         invariant nTemp != null
-    //         decreases nTemp.Repr
-    //     {
-    //         if (i < nTemp.weight) {
-    //             assert nTemp.weight > 0;
-    //             assert !(nTemp.left == null && nTemp.right == null);
-    //             assert (nTemp.weight > 0 && (nTemp.left != null || nTemp.right != null)) ==> nTemp.left != null;
-    //             nTemp := nTemp.left;
-    //         } else {
-    //             i := i - nTemp.weight;
-    //             nTemp := nTemp.right;
-    //         }
-    //     }
-
-    //     // while (!(nTemp.left == null && nTemp.right == null))
-    //     //     invariant 0 <= i
-    //     //     invariant nTemp != null
-    //     //     invariant nTemp.Valid()
-    //     //     invariant index == |n.Contents| - 1 ==> i >= nTemp.weight - 1
-    //     //     invariant index == |n.Contents| - 1 ==> n2 == null
-    //     //     invariant n1 == null || n1.Valid()
-    //     //     invariant n2 == null || n2.Valid()
-    //     //     // invariant n1 != null ==> n1.Valid() && n1.Contents == n.Contents[..nTemp.weight]
-    //     //     // invariant n2 != null ==> n2.Valid() && n2.Contents == n.Contents[]
-    //     //     invariant 0 <= i < |nTemp.Contents|
-    //     //     invariant 0 <= i < nTemp.weight - 1 ==> nTemp.weight > 0
-    //     //     // invariant nTemp.weight > 0 ==> nTemp.left != null
-    //     //     // invariant nTemp.weight !
-    //     //     // invariant 0 <= leftSize <= index <= rightSize < |n.Contents|
-    //     //     // invariant n1 != null ==> n1.Valid() && n1.Contents == n.Contents[..leftSize]
-    //     //     // invariant n2 != null ==> n2.Valid() && n2.Contents == n.Contents[rightSize..]
-    //     //     invariant nTemp.left != null && nTemp.right != null ==> nTemp.left.Repr !! nTemp.right.Repr
-    //     //     // invariant i < nTemp.weight && nTemp.right != null ==> nTemp.right.Repr < n2.Repr
-    //     //     invariant (n1 != null && n2 != null) ==> n1.Repr !! n2.Repr
-    //     //     // invariant 0 <= i - nTemp.weight <= nTemp.weight
-    //     //     // invariant n1 != null && n2 != null ==> n
-    //     //     decreases nTemp.Repr
-    //     // {
-    //     //     if (i < nTemp.weight) {
-    //     //         // split point lies on the left subtree - so right subtree is part of the second half
-    //     //         n2 := concat(nTemp.right, n2);
-    //     //         // assert nTemp.left != null && nTemp.right != null ==> nTemp.left.Repr !! nTemp.right.Repr;
-    //     //         // if (nTemp.left != null && nTemp.right != null) {
-    //     //         //     assert nTem
-    //     //         // 
-    //     //         if (nTemp.right != null) {
-    //     //             rightSize := rightSize - |nTemp.right.Contents| + 1;
-    //     //         }
-    //     //         // assert nTemp.left != null;
-    //     //         // if nTemp.left == null, then it means that nTemp.weight == 0
-    //     //         assert nTemp.weight > 0;
-    //     //         nTemp := nTemp.left;
-    //     //     } else {
-    //     //         // split point lies on the right subtree
-    //     //         n1 := concat(n1, nTemp.left);
-    //     //         if (nTemp.left != null) {
-    //     //             leftSize := leftSize + |nTemp.left.Contents|;
-    //     //         }
-    //     //         i := i - nTemp.weight;
-    //     //         nTemp := nTemp.right;
-    //     //     }
-    //     // }
-
-    //     // // have found the terminal node with the desired split point as nTemp
-    //     // if (i == 0) {
-    //     //     n2 := concat(nTemp, n2);
-    //     // } else if (i == nTemp.weight - 1) {
-    //     //     n1 := concat(n1, nTemp);
-    //     // } else {
-    //     //     // Need to split leaf node into two parts in new tree
-    //     //     var splitLeft := new Node.Terminal(nTemp.data[..i]);
-    //     //     var splitRight := new Node.Terminal(nTemp.data[i..]);
-    //     //     n1 := concat(n1, splitLeft);
-    //     //     n2 := concat(splitRight, n2);
-    //     // }
-    // }
 }
 

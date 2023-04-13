@@ -2,7 +2,6 @@ include "Utils.dfy"
 
 module Rope {
     import opened Utils
-    datatype traversalState = before | reading
 
     class Node {
         ghost var Contents: string;
