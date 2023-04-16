@@ -248,14 +248,11 @@ module Rope {
 
     method split(n: Node, index: nat) returns (n1: Node?, n2: Node?)
         requires n.Valid() && 0 <= index < |n.Contents|
-        ensures index == 0 ==> (n1 == null && n2 != null && n2.Valid() && n2.Contents == n.Contents && fresh(n2.Repr - old(n.Repr)))
-        ensures index == old(|n.Contents|) - 1 ==> (n2 == null && n1 != null && n1.Valid() && n1.Contents == n.Contents && fresh(n1.Repr - old(n.Repr)))
-        ensures 0 < index < old(|n.Contents|) - 1 ==> (n1 != null && n1.Valid() && n2 != null && n2.Valid() && 
-                                                n1.Contents == old(n.Contents[..index]) && n2.Contents == old(n.Contents[index..]) &&
-                                                n1.Repr !! n2.Repr && fresh(n1.Repr - old(n.Repr)) && fresh(n2.Repr - old(n.Repr)))
-        // reads n
-        // ensures n1 != null ==> n1.Valid() && n1.Contents == old(n.Contents[..index])
-        // ensures n2 != null ==> n2.Valid() && n2.Contents == old(n.Contents[index..])
+        ensures index == 0 ==> (n1 == null && n2 != null && n2.Valid() && n2.Contents == n.Contents && fresh(n2.Repr - n.Repr))
+        ensures index == |n.Contents| ==> (n2 == null && n1 != null && n1.Valid() && n1.Contents == n.Contents && fresh(n1.Repr - n.Repr))
+        ensures 0 < index < |n.Contents| ==> (n1 != null && n1.Valid() && n2 != null && n2.Valid() && 
+                                                n1.Contents == n.Contents[..index] && n2.Contents == n.Contents[index..] &&
+                                                n1.Repr !! n2.Repr && fresh(n1.Repr - n.Repr) && fresh(n2.Repr - n.Repr))
     {
         var nTemp := n;
         var i := index;
@@ -269,11 +266,12 @@ module Rope {
             invariant index == 0 ==> n1 == null 
             invariant n1 != null ==> n1.Valid() && nTemp.Repr !! n1.Repr
             invariant n2 != null ==> n2.Valid() && nTemp.Repr !! n2.Repr
-            invariant n1 == null ==> nTemp.Contents[..i] == old(n.Contents[..index])
-            invariant n1 != null ==> n1.Contents + nTemp.Contents[..i] == old(n.Contents[..index])
-            invariant n2 == null ==> nTemp.Contents[i..] == old(n.Contents[index..])
-            invariant n2 != null ==> nTemp.Contents[i..] + n2.Contents == old(n.Contents[index..])
+            invariant n1 == null ==> nTemp.Contents[..i] == n.Contents[..index]
+            invariant n1 != null ==> n1.Contents + nTemp.Contents[..i] == n.Contents[..index]
+            invariant n2 == null ==> nTemp.Contents[i..] == n.Contents[index..]
+            invariant n2 != null ==> nTemp.Contents[i..] + n2.Contents == n.Contents[index..]
             invariant nTemp.Contents[i] == n.Contents[index]  
+            invariant n1 != null && n2 != null ==> n1.Repr !! n2.Repr
             decreases nTemp.Repr
         {
             if (i < nTemp.weight) {
@@ -293,6 +291,8 @@ module Rope {
         
         // Have reached the terminal node with index i
         // Check if need to split leaf node into two parts in new tree
+        // assert |nTemp.data| == nTemp.weight;
+        // assert 0 <= i <= nTemp.weight;
         if (i == 0) {
             var newn2 := concat(nTemp, n2);
             n2 := newn2;
@@ -312,22 +312,11 @@ module Rope {
     method insert(n1: Node, n2: Node, index: nat) returns (n: Node)
         requires n1.Valid() && n2.Valid() && n1.Repr !! n2.Repr
         requires 0 <= index < |n1.Contents|
-        ensures n.Valid() && n.Contents == old(n1.Contents[..index] + n2.Contents + n1.Contents[index..])
+        ensures n.Valid() && n.Contents == n1.Contents[..index] + n2.Contents + n1.Contents[index..] && fresh(n.Repr - n1.Repr - n2.Repr)
     {
         var n1BeforeIndex, n1AfterIndex := split(n1, index);
-        assert index == 0 ==> n1BeforeIndex == null && n1AfterIndex.Contents == old(n1.Contents);
-        assert index == old(|n1.Contents|) - 1 ==> n1BeforeIndex.Contents == old(n1.Contents) && n1AfterIndex == null;
-        assert 0 < index < old(|n1.Contents|) - 1 ==> (n1BeforeIndex.Contents == old(n1.Contents[..index]) && 
-                                                    n1AfterIndex.Contents == old(n1.Contents[index..]));
         var firstPart := concat(n1BeforeIndex, n2);
-        assert index == 0 ==> firstPart.Contents == n2.Contents;
-        assert 0 < index < old(|n1.Contents|) ==> firstPart.Contents == n1BeforeIndex.Contents + n2.Contents;
-        assert 0 < index < old(|n1.Contents|) ==> n1BeforeIndex.Contents == old(n1.Contents[..index]);
-        assert 0 < index < old(|n1.Contents|) ==> firstPart.Contents == old(n1.Contents[..index]) + n2.Contents;
         n := concat(firstPart, n1AfterIndex);
-        assert 0 <= index < |n1.Contents| - 1 ==> n.Contents == firstPart.Contents + n1AfterIndex.Contents;
-        assert index == |n1.Contents| - 1 ==> n.Contents == firstPart.Contents;
-        // assert n.Contents == old(n1.Contents[..index] + n2.Contents + n1.Contents[index..]);
     }
 }
 
