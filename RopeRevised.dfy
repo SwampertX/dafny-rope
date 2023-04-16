@@ -230,10 +230,11 @@ module Rope {
         requires (n1 != null) ==> n1.Valid()
         requires (n2 != null) ==> n2.Valid()
         requires (n1 != null && n2 != null) ==> (n1.Repr !! n2.Repr)
+        ensures (n1 != null || n2 != null) ==> n != null && n.Valid()
         ensures (n1 == null && n2 == null) ==> n == null
-        ensures (n1 == null && n2 != null) ==> n == n2 && n != null && n.Valid() && n.Contents == n2.Contents
-        ensures (n1 != null && n2 == null) ==> n == n1 && n != null && n.Valid() && n.Contents == n1.Contents
-        ensures (n1 != null && n2 != null) ==> (n != null && n.Valid() && n.left == n1 && n.right == n2 && n.Contents == n1.Contents + n2.Contents && fresh(n.Repr - n1.Repr - n2.Repr))
+        ensures (n1 == null && n2 != null) ==> n == old(n2) && n != null && n.Valid() && n.Contents == old(n2.Contents)
+        ensures (n1 != null && n2 == null) ==> n == old(n1) && n != null && n.Valid() && n.Contents == old(n1.Contents)
+        ensures (n1 != null && n2 != null) ==> (n != null && n.Valid() && n.left == old(n1) && n.right == old(n2) && n.Contents == old(n1.Contents + n2.Contents) && fresh(n.Repr - n1.Repr - n2.Repr))
     {
         if (n1 == null) {
             n := n2;
@@ -245,7 +246,13 @@ module Rope {
     } 
 
     method split(n: Node, index: nat) returns (n1: Node?, n2: Node?)
-        requires n.Valid() && 0 < index < |n.Contents|
+        requires n.Valid() && 0 <= index < |n.Contents|
+        ensures index == 0 ==> n1 == null && n2 != null && n2.Valid() && n2.Contents == n.Contents && fresh(n2.Repr - old(n.Repr))
+        ensures index == old(|n.Contents|) - 1 ==> n2 == null && n1 != null && n1.Valid() && n1.Contents == n.Contents && fresh(n1.Repr - old(n.Repr))
+        ensures 0 < index < old(|n.Contents|) - 1 ==> (n1 != null && n1.Valid() && n2 != null && n2.Valid() && 
+                                                n1.Contents == old(n.Contents[..index]) && n2.Contents == old(n.Contents[index..]) &&
+                                                n1.Repr !! n2.Repr && fresh(n1.Repr - old(n.Repr)) && fresh(n2.Repr - old(n.Repr)))
+        // reads n
         // ensures n1 != null ==> n1.Valid() && n1.Contents == old(n.Contents[..index])
         // ensures n2 != null ==> n2.Valid() && n2.Contents == old(n.Contents[index..])
     {
@@ -257,7 +264,8 @@ module Rope {
         while (!(nTemp.left == null && nTemp.right == null)) 
             invariant nTemp != null
             invariant nTemp.Valid()
-            invariant 0 <= i < |nTemp.Contents|  
+            invariant 0 <= i < |nTemp.Contents| 
+            invariant index == 0 ==> n1 == null 
             invariant n1 != null ==> n1.Valid() && nTemp.Repr !! n1.Repr
             invariant n2 != null ==> n2.Valid() && nTemp.Repr !! n2.Repr
             invariant n1 == null ==> nTemp.Contents[..i] == old(n.Contents[..index])
@@ -269,13 +277,13 @@ module Rope {
         {
             if (i < nTemp.weight) {
                 var newn2 := concat(nTemp.right, n2);
-                assert n2 != null ==> newn2 != null; 
+                // assert n2 != null ==> newn2 != null; 
                 n2 := newn2;
                 nTemp := nTemp.left;
             } else { 
                 var newn1 := concat(n1, nTemp.left);
                 // weird behaviour - uncommenting asserts causes issues...and postconditions being uncommented makes the passing invariants fail
-                assert n1 != null ==> newn1 != null;
+                // assert n1 != null ==> newn1 != null;
                 n1 := newn1;
                 i := i - nTemp.weight;
                 nTemp := nTemp.right;
@@ -284,13 +292,39 @@ module Rope {
         
         // Have reached the terminal node with index i
         // Check if need to split leaf node into two parts in new tree
-        if (0 < i < nTemp.weight - 1) {
+        if (i == 0) {
+            var newn2 := concat(nTemp, n2);
+            n2 := newn2;
+        } else if (i == nTemp.weight) {
+            var newn1 := concat(n1, nTemp);
+        } else {
             var splitLeft := new Node.Terminal(nTemp.data[..i]);
             var splitRight := new Node.Terminal(nTemp.data[i..]);
-            n1 := concat(n1, splitLeft);
-            n2 := concat(splitRight, n2);
+            var newn1 := concat(n1, splitLeft);
+            var newn2 := concat(splitRight, n2);
+            n1 := newn1;
+            n2 := newn2;
         }
 
+    }
+
+    method insert(n1: Node, n2: Node, index: nat) returns (n: Node)
+        requires n1.Valid() && n2.Valid() && n1.Repr !! n2.Repr
+        requires 0 <= index < |n1.Contents|
+        ensures n.Valid() && n.Contents == old(n1.Contents[..index] + n2.Contents + n1.Contents[index..])
+    {
+        var n1BeforeIndex, n1AfterIndex := split(n1, index);
+        assert index == 0 ==> n1BeforeIndex == null && n1AfterIndex.Contents == old(n1.Contents);
+        assert index == old(|n1.Contents|) - 1 ==> n1BeforeIndex.Contents == old(n1.Contents) && n1AfterIndex == null;
+        assert 0 < index < old(|n1.Contents|) - 1 ==> n1BeforeIndex.Contents == old(n1.Contents[..index]) && n1AfterIndex.Contents == old(n1.Contents[index..]);
+        var firstPart := concat(n1BeforeIndex, n2);
+        assert index == 0 ==> firstPart.Contents == n2.Contents;
+        assert 0 < index < old(|n1.Contents|) ==> firstPart.Contents == n1BeforeIndex.Contents + n2.Contents;
+        n := concat(firstPart, n1AfterIndex);
+        assert 0 <= index < |n1.Contents| - 1 ==> n.Contents == firstPart.Contents + n1AfterIndex.Contents;
+        assert 
+        assert index == |n1.Contents| - 1 ==> n.Contents == firstPart.Contents;
+        assert n.Contents == old(n1.Contents[..index] + n2.Contents + n1.Contents[index..]);
     }
 }
 
