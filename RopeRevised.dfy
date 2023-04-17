@@ -263,12 +263,12 @@ module Rope {
             invariant nTemp != null
             invariant nTemp.Valid()
             invariant 0 <= i < |nTemp.Contents| 
-            invariant index == 0 ==> n1 == null 
-            invariant n1 != null ==> n1.Valid() && nTemp.Repr !! n1.Repr
-            invariant n2 != null ==> n2.Valid() && nTemp.Repr !! n2.Repr
+            invariant index == 0 ==> n1 == null
+            invariant n1 != null ==> n1.Valid() && nTemp.Repr !! n1.Repr && fresh(n1.Repr - n.Repr)
+            invariant n2 != null ==> n2.Valid() && nTemp.Repr !! n2.Repr && fresh(n2.Repr - n.Repr)
             invariant n1 == null ==> nTemp.Contents[..i] == n.Contents[..index]
             invariant n1 != null ==> n1.Contents + nTemp.Contents[..i] == n.Contents[..index]
-            invariant n2 == null ==> nTemp.Contents[i..] == n.Contents[index..]
+            invariant n2 == null ==>  nTemp.Contents[i..] == n.Contents[index..]
             invariant n2 != null ==> nTemp.Contents[i..] + n2.Contents == n.Contents[index..]
             invariant nTemp.Contents[i] == n.Contents[index]  
             invariant n1 != null && n2 != null ==> n1.Repr !! n2.Repr
