@@ -1,7 +1,7 @@
 include "Utils.dfy"
 
 module Rope {
-    import opened Utils
+    import Utils
     datatype traversalState = before | reading
 
     class Node {
@@ -13,42 +13,42 @@ module Rope {
         var left: Node?;
         var right: Node?;
 
-        ghost predicate Valid() 
-            reads this, Repr
-            ensures Valid() ==> this in Repr
-        {
-            this in Repr &&
-            (left != null ==> 
-                left in Repr &&
-                left.Repr < Repr && this !in left.Repr &&
-                left.Valid() &&
-                (forall child :: child in left.Repr ==> child.weight <= weight)) &&
-            (right != null ==> 
-                right in Repr &&
-                right.Repr < Repr && this !in right.Repr &&
-                right.Valid()) &&
-            (left == null && right == null ==>
-                Repr == {this} &&
-                Contents == data &&
-                weight == |data| &&
-                data != "") &&
-            (left != null && right == null ==>
-                Repr == {this} + left.Repr &&
-                Contents == left.Contents &&
-                weight == |left.Contents| &&
-                data == "") &&
-            (left == null && right != null ==>
-                Repr == {this} + right.Repr &&
-                Contents == right.Contents &&
-                weight == 0 &&
-                data == "") &&
-            (left != null && right != null ==>
-                Repr == {this} + left.Repr + right.Repr &&
-                left.Repr !! right.Repr &&
-                Contents == left.Contents + right.Contents &&
-                weight == |left.Contents| &&
-                data == "") 
-        }
+ghost predicate Valid() 
+    reads this, Repr
+    ensures Valid() ==> this in Repr
+{
+    this in Repr &&
+    (left != null ==> 
+        left in Repr &&
+        left.Repr < Repr && this !in left.Repr &&
+        left.Valid() &&
+        (forall child :: child in left.Repr ==> child.weight <= weight)) &&
+    (right != null ==> 
+        right in Repr &&
+        right.Repr < Repr && this !in right.Repr &&
+        right.Valid()) &&
+    (left == null && right == null ==>
+        Repr == {this} &&
+        Contents == data &&
+        weight == |data| &&
+        data != "") &&
+    (left != null && right == null ==>
+        Repr == {this} + left.Repr &&
+        Contents == left.Contents &&
+        weight == |left.Contents| &&
+        data == "") &&
+    (left == null && right != null ==>
+        Repr == {this} + right.Repr &&
+        Contents == right.Contents &&
+        weight == 0 &&
+        data == "") &&
+    (left != null && right != null ==>
+        Repr == {this} + left.Repr + right.Repr &&
+        left.Repr !! right.Repr &&
+        Contents == left.Contents + right.Contents &&
+        weight == |left.Contents| &&
+        data == "") 
+}
 
         function getWeightsOfAllRightChildren(): nat
             reads right, Repr
@@ -114,44 +114,16 @@ module Rope {
             Repr := {this} + nLeft.Repr + nRight.Repr;
         }   
 
-        method getCharAtIndex(index: nat) returns (c: char)
-            requires Valid() && 0 <= index < |Contents|
-            ensures c == Contents[index]
-        {
-            var nTemp := this;
-            var i := index;
-
-            while (!(nTemp.left == null && nTemp.right == null)) 
-                invariant nTemp != null
-                invariant nTemp.Valid()
-                invariant 0 <= i < |nTemp.Contents|   
-                invariant nTemp.Contents[i] == Contents[index] 
-                decreases nTemp.Repr
-            {
-                if (i < nTemp.weight) {
-                    nTemp := nTemp.left;
-                } else {
-                    i := i - nTemp.weight;
-                    nTemp := nTemp.right;
-                }
-            }
-            
-            // Have reached the terminal node with index i
-            c := nTemp.data[i];
-            
-        }
-
-        method getCharAtIndexNew(index: nat) returns (nTemp: Node, i: nat, c: char)
+        method getCharAtIndex(index: nat) returns (nTemp: Node, i: nat, c: char)
             requires Valid() && 0 <= index < |Contents|
             ensures c == Contents[index]
             ensures 0 <= i < |nTemp.data|
             ensures nTemp.Valid() && nTemp.data[i] == c
+            ensures nTemp in Repr && isTerminal(nTemp)
         {
             nTemp := this;
             i := index;
-
             while (!(nTemp.left == null && nTemp.right == null)) 
-                // invariant nTemp != null
                 invariant nTemp.Valid()
                 invariant 0 <= i < |nTemp.Contents|   
                 invariant nTemp.Contents[i] == Contents[index] 
@@ -164,67 +136,130 @@ module Rope {
                     nTemp := nTemp.right;
                 }
             }
-
             // Have reached the terminal node with index i
             c := nTemp.data[i];
         }
 
-        method report(i: nat, j: nat) returns (s: string)
-            requires Valid() && 0 <= i <= j < |Contents|
-            ensures s == Contents[i..j]
+        // function foldLeft<Q(==)> (xs: seq<Node>, init: Q, f: (Q, Node) -> Q): Q
+        //     reads xs
+        //     ensures forall n: Node :: foldLeft(xs, f(init, n), f) == foldLeft([n]+xs, init, f)
+        // {
+        //     if |xs| == 0 then init else foldLeft(xs[1..], f(init, xs[0]), f)
+        // }
+        method test()
         {
-            // ghost var start: Node, i': nat, tmp1: char;
-            var start: Node, i': nat, tmp1: char := this.getCharAtIndexNew(i);
-            var end: Node, j': nat, tmp2: char := this.getCharAtIndexNew(i);
-
-            // push i into stack: [i] + toVisitStack;
-            // pop stack: top := toVisitStack[0]; toVisitStack[1..];
-            var toVisitStack: seq<Node> := [this];
-            var notVisited: set<Node> := Repr;
-            var state: traversalState := before;
-
-            // state: 0, 1, 2, representing before left[i], between, after
-            // right[j]
-            s := "";
-            while (|toVisitStack| > 0)
-                decreases |notVisited|
-                // invariant s
-            {
-                // pop toVisitStack
-                var top := toVisitStack[0];
-                toVisitStack := toVisitStack[1..];
-                // mark top as visited
-                assert top in notVisited;
-                notVisited := notVisited - {top};
-
-                // if top is terminal: add it to visited
-                if top.left == null && top.right == null {
-                    if state == before {
-                        if top == start {
-                            state := reading;
-                            s := top.data[i'..];
-                        }
-                    } else {
-                        assert state == reading;
-                        if top == end {
-                            s := s + top.data[..j'];
-                            break;
-                        } else {
-                            s := s + data;
-                        }
-                    }
-                } else {
-                    if top.right != null {
-                        toVisitStack := [top.right] + toVisitStack;
-                    }
-                    if top.left != null {
-                        toVisitStack := [top.left] + toVisitStack;
-                    }
-                }
-            }
+            assert [1,2,3][..1] == [1];
+            assert [1,2,3][1..] == [2,3];
         }
 
+        ghost function collectAllData(xs: seq<Node>): string
+            reads xs
+            requires forall i:: 0 <= i < |xs| ==> xs[i].Valid() && isTerminal(xs[i])
+            // ensures forall i :: 0 <= i < |xs|
+            //     ==> collectAllData(xs[..i]) + collectAllData(xs[i..]) == collectAllData(xs)
+        {
+            if |xs| == 0 then "" else xs[0].Contents + collectAllData(xs[1..])
+        }
+
+        method collectAllDataM(xs: seq<Node>) returns (s: string)
+            requires forall i:: 0 <= i < |xs| ==> xs[i].Valid() && isTerminal(xs[i])
+            ensures s == collectAllData(xs)
+            // ensures forall i :: 0 <= i < |xs|
+            //     ==> collectAllData(xs[..i]) + collectAllData(xs[i..]) == collectAllData(xs)
+        {
+            var i := 0;
+            assert forall i:: 0 <= i < |xs| ==> xs[i].data == xs[i].Contents;
+            s := "";
+            assert collectAllData(xs[..0]) == "";
+            while (i < |xs|)
+                invariant 0 <= i <= |xs|
+                invariant s == collectAllData(xs[..i])
+            {
+                s := s + xs[i].data;
+                i := i + 1;
+            }
+            assert xs == xs[..|xs|];
+            assert collectAllData(xs) == s;
+        }
+
+        function terminalPreOrder(): seq<Node>
+            reads Repr
+            requires Valid()
+            ensures (set n: Node | n in terminalPreOrder()) <= Repr
+            ensures forall n :: n in Repr ==> (isTerminal(n) <==> n in terminalPreOrder())
+            // ensures foldLeft(terminalPreOrder(),
+            //     "", (acc: string, n: Node) => acc + n.data) == Contents
+            ensures collectAllData(terminalPreOrder()) == Contents
+        {
+            if (this.left == null && this.right == null) then [this]
+            else if (this.left != null && this.right == null)
+                then this.left.terminalPreOrder()
+            else if (this.left == null && this.right != null)
+                then this.right.terminalPreOrder()
+            else this.left.terminalPreOrder() + this.right.terminalPreOrder()
+        }
+
+        predicate isTerminal(n: Node)
+            reads n, n.left, n.right
+        { n.left == null && n.right == null }
+
+        function length(ns: seq<Node>): nat
+            reads ns
+            requires forall n :: n in ns ==> isTerminal(n)
+        {
+            if |ns| == 0 then 0 else |ns[0].data| + length(ns[1..])
+        }
+
+        // TODO: report with recursive DFS
+
+    //     method report(i: nat, j: nat, last: Node) returns (s: string)
+    //         requires Valid() && 0 <= i <= j < |Contents|
+    //         requires last.Valid() && last in Repr
+    //         ensures s == Contents[i..j]
+    //     {
+    //         var start: Node, i': nat, tmp1: char := this.getCharAtIndex(i);
+    //         var end: Node, j': nat, tmp2: char := this.getCharAtIndex(i);
+    //         var order := this.terminalPreOrder();
+    //         // assert start in order && end in order;
+    //         var i := 0;
+    //         // assert |order| >= 1;
+    //         s := "";
+    //         var state := before;
+    //         assert forall o :: o in order ==> isTerminal(o);
+    //         var ii := i => Utils.min(i, length(order));
+    //         while (i < |order|)
+    //             invariant 0 <= i <= |order|
+    //             invariant s == Contents[i..Utils.min(j,length(order[..i]))]
+    //         {
+    //             var curr := order[i];
+    //             if state == before {
+    //                 if curr == start {
+    //                     state := reading;
+    //                     s := curr.data[i'..];
+    //                 }
+    //             } else {
+    //                 assert state == reading;
+    //                 if curr == end {
+    //                     s := s + curr.data[..j'];
+    //                     break;
+    //                 } else {
+    //                     s := s + data;
+    //                 }
+    //             }
+    //             i := i + 1;
+    //         }
+    //     }
+
+    method delete(start: nat, length: nat) returns (n: Node)
+    {
+        var lhs := split(start);
+        var rhs := split(start + length);
+        n := concat(lhs.left, rhs.right);
     }
+  }
+
+    }
+
 
     method concat(n1: Node?, n2: Node?) returns (n: Node?) 
         requires (n1 != null) ==> n1.Valid()
@@ -294,3 +329,11 @@ module Rope {
     }
 }
 
+module Test {
+    import opened Rope
+    
+    method test() {
+        var r1 := new Node.Terminal("abcde");
+        assert r1.data == "abcde";
+    }
+}
