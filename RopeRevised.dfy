@@ -1,8 +1,7 @@
 include "Utils.dfy"
 
 module Rope {
-    import opened Utils
-    datatype traversalState = before | reading
+    import Utils
 
     class Node {
         ghost var Contents: string;
@@ -114,44 +113,16 @@ module Rope {
             Repr := {this} + nLeft.Repr + nRight.Repr;
         }   
 
-        method getCharAtIndex(index: nat) returns (c: char)
-            requires Valid() && 0 <= index < |Contents|
-            ensures c == Contents[index]
-        {
-            var nTemp := this;
-            var i := index;
-
-            while (!(nTemp.left == null && nTemp.right == null)) 
-                invariant nTemp != null
-                invariant nTemp.Valid()
-                invariant 0 <= i < |nTemp.Contents|   
-                invariant nTemp.Contents[i] == Contents[index] 
-                decreases nTemp.Repr
-            {
-                if (i < nTemp.weight) {
-                    nTemp := nTemp.left;
-                } else {
-                    i := i - nTemp.weight;
-                    nTemp := nTemp.right;
-                }
-            }
-            
-            // Have reached the terminal node with index i
-            c := nTemp.data[i];
-            
-        }
-
-        method getCharAtIndexNew(index: nat) returns (nTemp: Node, i: nat, c: char)
+        method getCharAtIndex(index: nat) returns (nTemp: Node, i: nat, c: char)
             requires Valid() && 0 <= index < |Contents|
             ensures c == Contents[index]
             ensures 0 <= i < |nTemp.data|
             ensures nTemp.Valid() && nTemp.data[i] == c
+            ensures nTemp in Repr && isTerminal(nTemp)
         {
             nTemp := this;
             i := index;
-
             while (!(nTemp.left == null && nTemp.right == null)) 
-                // invariant nTemp != null
                 invariant nTemp.Valid()
                 invariant 0 <= i < |nTemp.Contents|   
                 invariant nTemp.Contents[i] == Contents[index] 
@@ -164,12 +135,47 @@ module Rope {
                     nTemp := nTemp.right;
                 }
             }
-
             // Have reached the terminal node with index i
             c := nTemp.data[i];
         }
 
+        predicate isTerminal(n: Node)
+            reads n, n.left, n.right
+        { n.left == null && n.right == null }
+
+        method report(i: nat, j: nat) returns (s: string)
+            requires 0 <= i <= j <= |this.Contents|
+            requires Valid()
+            ensures s == this.Contents[i..j]
+            decreases Repr
+        {
+            if i == j {
+                s := "";
+            } else {
+                if this.left == null && this.right == null {
+                    s := data[i..j];
+                    // strange: removing this assert fails the postcondition.
+                    assert s == this.Contents[i..j];
+                } else {
+                    if (j <= this.weight) {
+                        var s' := this.left.report(i, j);
+                        s := s';
+                    } else if (this.weight <= i) {
+                        var s' := this.right.report(i - this.weight, j - this.weight);
+                        s := s';
+                    } else {
+                        assert i <= this.weight < j;
+                        assert this.weight == |this.left.Contents|;
+                        var s1 := this.left.report(i, this.weight);
+                        var s2 := this.right.report(0, j - this.weight);
+                        s := s1 + s2;
+                    }
+                }
+            }
+        }
     }
+    // End of Node Class
+
 
     method concat(n1: Node?, n2: Node?) returns (n: Node?) 
         requires (n1 != null) ==> n1.Valid()
@@ -199,8 +205,6 @@ module Rope {
         ensures 0 < index < |n.Contents| ==> (n1 != null && n1.Valid() && n2 != null && n2.Valid() && 
                                                 n1.Contents == n.Contents[..index] && n2.Contents == n.Contents[index..] &&
                                                 n1.Repr !! n2.Repr && fresh(n1.Repr - n.Repr) && fresh(n2.Repr - n.Repr))
-        // ensures forall i,i1,i2,j,j1,j2 :: 0 <= i <= j < |n.Contents|
-        //     ==> (i1, i2) == split(n, i)
         decreases n.Repr
     {
         if (index == 0) {
@@ -251,10 +255,9 @@ module Rope {
         requires n.Valid()
         requires 0 <= start < |n.Contents| && 1 <= length <= |n.Contents| - start
     {
-        assert start + length - 1 >= start;
         var l1, l2 := split(n, start);
-        var r1, r2 := split(n, start + length - 1);
+        var r1, r2 := split(l2, length - 1);
         m := concat(l1, r2);
     }
-
 }
+// End of Rope Module
