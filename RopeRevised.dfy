@@ -169,61 +169,6 @@ module Rope {
             c := nTemp.data[i];
         }
 
-        method report(i: nat, j: nat) returns (s: string)
-            requires Valid() && 0 <= i <= j < |Contents|
-            ensures s == Contents[i..j]
-        {
-            // ghost var start: Node, i': nat, tmp1: char;
-            var start: Node, i': nat, tmp1: char := this.getCharAtIndexNew(i);
-            var end: Node, j': nat, tmp2: char := this.getCharAtIndexNew(i);
-
-            // push i into stack: [i] + toVisitStack;
-            // pop stack: top := toVisitStack[0]; toVisitStack[1..];
-            var toVisitStack: seq<Node> := [this];
-            var notVisited: set<Node> := Repr;
-            var state: traversalState := before;
-
-            // state: 0, 1, 2, representing before left[i], between, after
-            // right[j]
-            s := "";
-            while (|toVisitStack| > 0)
-                decreases |notVisited|
-                // invariant s
-            {
-                // pop toVisitStack
-                var top := toVisitStack[0];
-                toVisitStack := toVisitStack[1..];
-                // mark top as visited
-                assert top in notVisited;
-                notVisited := notVisited - {top};
-
-                // if top is terminal: add it to visited
-                if top.left == null && top.right == null {
-                    if state == before {
-                        if top == start {
-                            state := reading;
-                            s := top.data[i'..];
-                        }
-                    } else {
-                        assert state == reading;
-                        if top == end {
-                            s := s + top.data[..j'];
-                            break;
-                        } else {
-                            s := s + data;
-                        }
-                    }
-                } else {
-                    if top.right != null {
-                        toVisitStack := [top.right] + toVisitStack;
-                    }
-                    if top.left != null {
-                        toVisitStack := [top.left] + toVisitStack;
-                    }
-                }
-            }
-        }
-
     }
 
     method concat(n1: Node?, n2: Node?) returns (n: Node?) 
@@ -254,6 +199,8 @@ module Rope {
         ensures 0 < index < |n.Contents| ==> (n1 != null && n1.Valid() && n2 != null && n2.Valid() && 
                                                 n1.Contents == n.Contents[..index] && n2.Contents == n.Contents[index..] &&
                                                 n1.Repr !! n2.Repr && fresh(n1.Repr - n.Repr) && fresh(n2.Repr - n.Repr))
+        // ensures forall i,i1,i2,j,j1,j2 :: 0 <= i <= j < |n.Contents|
+        //     ==> (i1, i2) == split(n, i)
         decreases n.Repr
     {
         if (index == 0) {
@@ -299,5 +246,15 @@ module Rope {
         var firstPart := concat(n1BeforeIndex, n2);
         n := concat(firstPart, n1AfterIndex);
     }
-}
 
+    method delete(n: Node, start: nat, length: nat) returns (m: Node)
+        requires n.Valid()
+        requires 0 <= start < |n.Contents| && 1 <= length <= |n.Contents| - start
+    {
+        assert start + length - 1 >= start;
+        var l1, l2 := split(n, start);
+        var r1, r2 := split(n, start + length - 1);
+        m := concat(l1, r2);
+    }
+
+}
