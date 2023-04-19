@@ -55,9 +55,19 @@ module Rope {
             reads right, Repr
             requires Valid()
             decreases Repr
+            ensures right != null
+                ==> getWeightsOfAllRightChildren() == |right.Contents|
         {
             if right == null then 0 else right.weight + right.getWeightsOfAllRightChildren()
         } 
+
+        function length(): nat
+            reads Repr
+            requires Valid()
+            ensures |Contents| == length()
+        {
+            this.weight + getWeightsOfAllRightChildren()
+        }
 
         // constructor for creating a terminal node
         constructor Terminal(x: string)
@@ -119,16 +129,14 @@ module Rope {
             Repr := {this} + nLeft.Repr + nRight.Repr;
         }   
 
-        method getCharAtIndex(index: nat) returns (nTemp: Rope, i: nat, c: char)
+        method getCharAtIndex(index: nat) returns (c: char)
             requires Valid() && 0 <= index < |Contents|
             ensures c == Contents[index]
-            ensures 0 <= i < |nTemp.data|
-            ensures nTemp.Valid() && nTemp.data[i] == c
-            ensures nTemp in Repr && isTerminal(nTemp)
         {
-            nTemp := this;
-            i := index;
+            var nTemp := this;
+            var i := index;
             while (!isTerminal(nTemp)) 
+                invariant nTemp != null;
                 invariant nTemp.Valid()
                 invariant 0 <= i < |nTemp.Contents|   
                 invariant nTemp.Contents[i] == Contents[index] 
@@ -176,6 +184,13 @@ module Rope {
                     }
                 }
             }
+        }
+
+        method toString() returns (s: string)
+            requires Valid()
+            ensures s == Contents
+        {
+            s := report(0, this.length());
         }
 
         static method concat(n1: Rope?, n2: Rope?) returns (n: Rope?) 
@@ -281,6 +296,20 @@ module Rope {
             var l1, l2 := split(n, i);
             var r1, r2 := split(l2, j - i);
             m := concat(l1, r2);
+        }
+
+        static method substring(n: Rope, i: nat, j: nat) returns (m: Rope?)
+            requires n.Valid()
+            requires 0 <= i < j <= |n.Contents|
+            ensures (i == j) <==> m == null
+            ensures m != null ==>
+                m.Valid() &&
+                m.Contents == n.Contents[i..j] &&
+                fresh(m.Repr - n.Repr)
+        {
+            var l1, l2 := split(n, i);
+            var r1, r2 := split(l2, j - i);
+            m := r1;
         }
 
     }
