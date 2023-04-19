@@ -49,6 +49,12 @@ module Rope {
                 data == "") 
         }
 
+        static lemma contentSizeGtZero(n: Node)
+            requires n.Valid()
+            ensures |n.Contents| > 0
+            decreases n.Repr
+        {}
+
         function getWeightsOfAllRightChildren(): nat
             reads right, Repr
             requires Valid()
@@ -69,6 +75,10 @@ module Rope {
             Contents := x;
             Repr := {this};
         }   
+
+        predicate isTerminal(n: Node)
+            reads n, n.left, n.right
+        { n.left == null && n.right == null }
 
         // constructor for creating a non-terminal node
         constructor NonTerminal(nLeft: Node, nRight: Node)
@@ -122,7 +132,7 @@ module Rope {
         {
             nTemp := this;
             i := index;
-            while (!(nTemp.left == null && nTemp.right == null)) 
+            while (!isTerminal(nTemp)) 
                 invariant nTemp.Valid()
                 invariant 0 <= i < |nTemp.Contents|   
                 invariant nTemp.Contents[i] == Contents[index] 
@@ -139,9 +149,6 @@ module Rope {
             c := nTemp.data[i];
         }
 
-        predicate isTerminal(n: Node)
-            reads n, n.left, n.right
-        { n.left == null && n.right == null }
 
         method report(i: nat, j: nat) returns (s: string)
             requires 0 <= i <= j <= |this.Contents|
@@ -163,6 +170,8 @@ module Rope {
                     } else if (this.weight <= i) {
                         var s' := this.right.report(i - this.weight, j - this.weight);
                         s := s';
+                        // strange: removing this assert fails the postcondition.
+                        assert s == this.Contents[i..j];
                     } else {
                         assert i <= this.weight < j;
                         assert this.weight == |this.left.Contents|;
@@ -173,6 +182,7 @@ module Rope {
                 }
             }
         }
+
     }
     // End of Node Class
 
@@ -198,8 +208,16 @@ module Rope {
     } 
 
 
+    /**
+        Dafny needs help to guess that in our definition, every rope must
+        have non-empty Contents, otherwise it is represented by [null].
+
+        The lemma contentSizeGtZero(n) is thus important to prove the
+        postcondition of this method, in the two places where the lemma is
+        invoked.
+     */
     method split(n: Node, index: nat) returns (n1: Node?, n2: Node?) 
-        requires n.Valid() && 0 <= index < |n.Contents|
+        requires n.Valid() && 0 <= index <= |n.Contents|
         ensures index == 0 ==> (n1 == null && n2 != null && n2.Valid() && n2.Contents == n.Contents && fresh(n2.Repr - n.Repr))
         ensures index == |n.Contents| ==> (n2 == null && n1 != null && n1.Valid() && n1.Contents == n.Contents && fresh(n1.Repr - n.Repr))
         ensures 0 < index < |n.Contents| ==> (n1 != null && n1.Valid() && n2 != null && n2.Valid() && 
@@ -210,6 +228,8 @@ module Rope {
         if (index == 0) {
             n1 := null;
             n2 := n;
+            Node.contentSizeGtZero(n);
+            // assert index != |n.Contents|;
         } else if (index < n.weight) {
             if (n.left != null) {
                 var s1, s2 := split(n.left, index);
@@ -230,11 +250,18 @@ module Rope {
             n1 := concat(n.left, s1);
             n2 := s2;
         } else {
-            if (n.left != null || n.right != null) {
+            // since [n.weight == index != 0], it means that [n] cannot be a
+            // non-terminal node with [left == null].
+            if (n.left != null && n.right == null) {
+                n1 := n.left;
+                n2 := null;
+            } else if (n.left != null && n.right != null) {
+                n.contentSizeGtZero(n.right);
+                // assert index != |n.Contents|;
                 n1 := n.left;
                 n2 := n.right;
             } else {
-                // terminal
+                assert n.left == null && n.right == null;
                 n1 := n;
                 n2 := null;
             }
@@ -251,12 +278,14 @@ module Rope {
         n := concat(firstPart, n1AfterIndex);
     }
 
-    method delete(n: Node, start: nat, length: nat) returns (m: Node)
+    method delete(n: Node, i: nat, j: nat) returns (m: Node?)
         requires n.Valid()
-        requires 0 <= start < |n.Contents| && 1 <= length <= |n.Contents| - start
+        requires 0 <= i < j <= |n.Contents|
+        ensures (i == 0 && j == |n.Contents|) ==> m == null
+        ensures m != null ==> m.Valid() && m.Contents == n.Contents[..i] + n.Contents[j..];
     {
-        var l1, l2 := split(n, start);
-        var r1, r2 := split(l2, length - 1);
+        var l1, l2 := split(n, i);
+        var r1, r2 := split(l2, j - i);
         m := concat(l1, r2);
     }
 }
