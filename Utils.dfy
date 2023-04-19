@@ -29,10 +29,4 @@ module Utils {
   {
     if |xs| == 0 then [] else (if p(xs[0]) then [xs[0]] else []) + filter(xs[1..], p)
   }
-
-
-  function foldRight<P,Q> (xs: seq<P>, init: Q, f: (P,Q) -> Q): Q
-  {
-    if |xs| == 0 then init else foldRight(xs[1..], f(xs[|xs|-1], init), f)
-  }
 }

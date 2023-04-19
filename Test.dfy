@@ -1,4 +1,4 @@
-include "RopePresentation.dfy"
+include "Rope.dfy"
 import opened Rope
 
 method test()
@@ -24,5 +24,11 @@ method test()
     assert AHopeful == B;
     assert AHopeful.weight == 9;
     assert AHopeful.Contents == B.Contents;
+
+    var foo := delete(AHopeful, 0, 1);
+    assert foo.Contents == "ello my name is Simon";
+    var s := foo.report(1,3);
+    assert s == "ll";
+    print s;
 }
 
