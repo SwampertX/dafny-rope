@@ -125,6 +125,30 @@ method toString() returns (s: string)
     s := report(0, this.length());
 }
 
+method getCharAtIndex(index: nat) returns (c: char)
+    requires Valid() && 0 <= index < |Contents|
+    ensures c == Contents[index]
+{
+    var nTemp := this;
+    var i := index;
+    while (!nTemp.isTerminal()) 
+        invariant nTemp != null;
+        invariant nTemp.Valid()
+        invariant 0 <= i < |nTemp.Contents|   
+        invariant nTemp.Contents[i] == Contents[index] 
+        decreases nTemp.Repr
+    {
+        if (i < nTemp.weight) {
+            nTemp := nTemp.left;
+        } else {
+            i := i - nTemp.weight;
+            nTemp := nTemp.right;
+        }
+    }
+    // Have reached the terminal node with index i
+    c := nTemp.data[i];
+}
+
 static method concat(n1: Rope?, n2: Rope?) returns (n: Rope?) 
     requires (n1 != null) ==> n1.Valid()
     requires (n2 != null) ==> n2.Valid()
