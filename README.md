@@ -43,5 +43,3 @@ assert firstStr == "Hello";
 ```
 
 Note that the `test` method in `Test.dfy` occasionally takes longer than 20 seconds to verify due to the large size of the Rope data structure being built as well as the large number of `assert` statements and their level of detail. In the case this happens, restarting Visual Studio Code, commenting out a few of the assertional statements, or reducing the number of Rope operations used should speed up verification.
-
-Additionally, while both the `concat` method and the `NonTerminal` constructor can be be used to build larger ropes from smaller blocks and are both directly accessible from the `Rope` class, we recommend using the `concat` method since it wraps the `NonTerminal` constructor and is also able to handle `null` as input. 
