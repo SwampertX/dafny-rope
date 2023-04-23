@@ -4,8 +4,8 @@ import opened Rope
 method quickstart()
 {
     // initializing
-    var n1: Rope := new Rope.Terminal("Hello ");
-    var n2: Rope := new Rope.Terminal("world!");
+    var n1: Rope := new Rope.Terminal("Hello");
+    var n2: Rope := new Rope.Terminal(" world!");
     // concat
     var n: Rope := Rope.concat(n1, n2);
     assert n.Valid();
@@ -20,10 +20,19 @@ method quickstart()
     // report: returns a string
     var fstr: string := n.report(0, 5);
     assert fstr == "Hello";
+    // insert: returns a rope
+    var n3: Rope := new Rope.Terminal(", beautiful");
+    var n4: Rope := Rope.insert(n, n3, 5);
+    var n4Str: string := n4.toString();
+    assert n4Str == "Hello, beautiful world!";
     // substring: returns a Rope
     var first: Rope := Rope.substring(n, 0, 5);
     var firstStr: string := first.toString();
     assert firstStr == "Hello";
+    // delete: returns a Rope
+    var second: Rope := Rope.delete(n, 0, 5);
+    var secondStr: string := second.toString();
+    assert secondStr == " world!";
 }
 
 method test()
